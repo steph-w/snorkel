@@ -237,6 +237,17 @@ class PCA(TFNoiseAwareModel):
                         [float(_) for _ in line[-self.char_emb_dim:]])
             f.close()
 
+    def gen_char_list(self, x, k):
+        ret = []
+        for w in x:
+            l = ['<s>'] + list(w) + ['</s>']
+            for i in range(len(l) - k + 1):
+                ret.append(''.join(l[i:i + k]))
+        ret = [_.replace('<s>', '') for _ in ret]
+        ret = filter(lambda x: x != '', ret)
+        ret = filter(lambda x: x != '</s>', ret)
+        return ret
+
     def get_principal_components(self, x, y=None):
         # word level features
         ret1 = torch.zeros(self.r + 1, self.word_emb_dim).double()
@@ -274,7 +285,7 @@ class PCA(TFNoiseAwareModel):
         if self.char:
             # char level features
             ret2 = torch.zeros(self.r + 1, self.char_emb_dim).double()
-            x_c = ''.join(x)
+            x_c = self.gen_char_list(x, self.char_gram)
             if len(x_c) > 0 and len(x_c) > self.l:
                 f = self.char_dict.lookup
                 x_ = torch.from_numpy(np.array([self.char_emb[_] for _ in map(f, list(x_c))]))
@@ -288,7 +299,7 @@ class PCA(TFNoiseAwareModel):
             if self.bidirectional:
                 # char level features
                 ret2_b = torch.zeros(self.r + 1, self.char_emb_dim).double()
-                x_c_b = ''.join(x)[::-1]
+                x_c_b = x_c[::-1]
                 if len(x_c_b) > 0 and len(x_c_b) > self.l:
                     f = self.char_dict.lookup
                     x_ = torch.from_numpy(np.array([self.char_emb[_] for _ in map(f, list(x_c_b))]))
@@ -423,6 +434,9 @@ class PCA(TFNoiseAwareModel):
         # Set word embedding path
         self.word_emb_path = kwargs.get('word_emb_path', None)
 
+        # Set char gram k
+        self.char_gram = kwargs.get('char_gram', 1)
+
         # Set char embedding dimension
         self.char_emb_dim = kwargs.get('char_emb_dim', None)
 
@@ -482,6 +496,7 @@ class PCA(TFNoiseAwareModel):
         print "Bidirectional:                     ", self.bidirectional
         print "Host device:                       ", self.host_device
         print "Use char embeddings:               ", self.char
+        print "Char gram:                         ", self.char_gram
         print "Kernel:                            ", self.kernel
         if self.kernel == 'exp':
             print "Exp kernel decay:                  ", self.decay
